@@ -2761,7 +2761,7 @@ export async function applyPlugin(
     // new-Web/old-daemon upgrade window, omitting the plugin is safer than
     // silently substituting different local bytes.
     if (!resp.ok) {
-      if (await isLocalDaemonProxyFailure(resp)) return null;
+      if (await isDaemonProxyConnectionFailure(resp)) return null;
       const message = await readPluginApplyErrorMessage(resp);
       return message ? { ok: false, message } : null;
     }
@@ -2827,13 +2827,7 @@ async function readErrorMessage(resp: Response): Promise<string> {
     if (message && details.length > 0) return `${message}: ${details.join('; ')}`;
     if (message) return message;
   } catch {
-    // Fall through to the text/status fallback below.
-  }
-  try {
-    const text = (await resp.text()).trim();
-    if (text) return text;
-  } catch {
-    // Fall through to the status text below.
+    // Fall through to the bounded status fallback below.
   }
   return resp.statusText || `HTTP ${resp.status}`;
 }
