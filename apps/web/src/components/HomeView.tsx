@@ -121,6 +121,7 @@ import { useWorkspaceInvalidation } from '../collab/workspace-events';
 import { useWorkspaceSnapshotActivation } from '../collab/workspace-snapshot-activation';
 import {
   buildHomeMediaComposer,
+  homeMediaInputsAfterTemplateChange,
   homeMediaSurfaceForChipId,
   metadataForHomeMediaComposer,
   normalizeHomeMediaInputs,
@@ -2200,9 +2201,24 @@ export function HomeView({
 
   function updateActiveInputs(next: Record<string, unknown>) {
     if (!active) return;
-    const normalized = active.mediaSurface
-      ? normalizeHomeMediaInputs(active.mediaSurface, next, promptTemplates, elevenLabsVoices, composerImageModels)
+    const templateAwareNext = active.mediaSurface
+      ? homeMediaInputsAfterTemplateChange(
+          active.mediaSurface,
+          active.inputs,
+          next,
+          promptTemplates,
+          composerImageModels,
+        )
       : next;
+    const normalized = active.mediaSurface
+      ? normalizeHomeMediaInputs(
+          active.mediaSurface,
+          templateAwareNext,
+          promptTemplates,
+          elevenLabsVoices,
+          composerImageModels,
+        )
+      : templateAwareNext;
     const mediaComposer = active.mediaSurface
       ? buildHomeMediaComposer(active.mediaSurface, promptTemplates, normalized, elevenLabsVoices, {
           elevenLabsVoiceWarning,
@@ -2858,7 +2874,11 @@ export function HomeView({
           );
           return;
         }
-        submittedActive = { ...submittedActive, result, inputs: submittedPluginInputs };
+        // The applied snapshot intentionally uses the run-facing inputs with
+        // hidden footer fields stripped, but the composer must retain its full
+        // model/aspect state so a rejected or blocked create can retry with the
+        // same project metadata.
+        submittedActive = { ...submittedActive, result };
         setActive(submittedActive);
       }
       // Reconcile each selected context against the serialized prompt text before
@@ -2916,7 +2936,11 @@ export function HomeView({
       const submittedProjectKind =
         submittedActive?.projectKind ?? fallbackProjectKind ?? projectKindForSkill(activeSkill) ?? 'other';
       const submittedProjectMetadata = submittedActive?.mediaSurface
-        ? metadataForHomeMediaComposer(submittedActive.mediaSurface, submittedActive.inputs, promptTemplates)
+        ? metadataForHomeMediaComposer(
+            submittedActive.mediaSurface,
+            submittedApplyInputs,
+            promptTemplates,
+          )
         : homeCreateProjectMetadata(
             submittedProjectKind,
             submittedActive?.inputs ?? null,
