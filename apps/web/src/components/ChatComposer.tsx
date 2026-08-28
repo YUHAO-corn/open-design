@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@open-design/components';
 import { ThinkingOrb } from './composer/ThinkingOrb';
 import { useI18n } from '../i18n';
+import { formatPluginApplyFailure } from '../i18n/pluginApplyErrors';
 import { localizePluginDescription, localizePluginTitle } from './plugins-home/localization';
 import type { Dict, Locale } from '../i18n/types';
 import {
@@ -2038,7 +2039,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       if (!result || pluginApplyFailed(result)) {
         setUploadError(
           pluginApplyFailed(result)
-            ? t('pluginDetail.applyFailedWithReason', { error: result.message })
+            ? formatPluginApplyFailure(result, t)
             : t('pluginDetail.applyFailed'),
         );
         return false;

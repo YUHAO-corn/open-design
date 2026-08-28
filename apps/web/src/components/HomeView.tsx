@@ -62,6 +62,7 @@ import { FigmaImportModal } from './FigmaImportModal';
 import { fetchMcpServers } from '../state/mcp';
 import { takeHomeComposerAssetSeed } from '../state/libraryHandoff';
 import { useI18n, useT } from '../i18n';
+import { formatPluginApplyFailure } from '../i18n/pluginApplyErrors';
 import {
   formatModelWindowRetryAt,
   modelWindowLimitCopy,
@@ -1532,7 +1533,7 @@ export function HomeView({
       setActive((prev) => (prev?.record.id === record.id ? { ...prev, inputsValid: false } : prev));
       setError(
         pluginApplyFailed(result)
-          ? `Failed to apply ${record.title}: ${result.message}`
+          ? formatPluginApplyFailure(result, t, record.title)
           : `Failed to apply ${record.title}. Make sure the daemon is reachable.`,
       );
       return false;
@@ -2861,7 +2862,7 @@ export function HomeView({
             missing.length > 0
               ? missingRequiredInputsMessage(missing)
               : pluginApplyFailed(result)
-                ? `Failed to apply ${submittedActive.record.title}: ${result.message}`
+                ? formatPluginApplyFailure(result, t, submittedActive.record.title)
                 : `Failed to apply ${submittedActive.record.title}. Check the plugin parameters and try again.`,
           );
           return;
