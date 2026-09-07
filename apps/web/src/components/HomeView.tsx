@@ -307,6 +307,9 @@ interface Props {
   skillsLoading?: boolean;
   connectors?: ConnectorDetail[];
   promptTemplates?: PromptTemplateSummary[];
+  promptTemplatesLoaded?: boolean;
+  promptTemplatesLoadFailed?: boolean;
+  onPromptTemplatesRetry?: () => void;
   promptTemplatesLoading?: boolean;
   // Personalized first-run starting point (spec §7). Null unless the user just
   // finished the About-you survey this session; EntryShell owns the state.
@@ -542,6 +545,9 @@ export function HomeView({
   skillsLoading = false,
   connectors = EMPTY_CONNECTORS,
   promptTemplates = EMPTY_PROMPT_TEMPLATES,
+  promptTemplatesLoaded = true,
+  promptTemplatesLoadFailed = false,
+  onPromptTemplatesRetry,
   promptTemplatesLoading = false,
   recommendation = null,
   onRecommendationStart,
@@ -1924,7 +1930,7 @@ export function HomeView({
     // overwrite the saved draft, and make a retry submit the wrong metadata.
     // Keep the restore pending (which also keeps Send disabled) until the
     // parent confirms the catalog has settled.
-    if (restoredMediaSurface && restore.mediaSelection?.template && promptTemplatesLoading) {
+    if (restoredMediaSurface && restore.mediaSelection?.template && !promptTemplatesLoaded) {
       return;
     }
     setPendingChipRestore(null);
@@ -2004,7 +2010,7 @@ export function HomeView({
     plugins,
     active,
     pendingPluginUseHandoff,
-    promptTemplatesLoading,
+    promptTemplatesLoaded,
     promptTemplates,
   ]);
 
@@ -3207,6 +3213,14 @@ export function HomeView({
     || contextWorkspaceItems.length > 0
     || stagedFiles.length > 0
   );
+  const mediaRestoreWaitingForCatalog = Boolean(
+    pendingChipRestore?.mediaSelection?.template
+    && homeMediaSurfaceForChipId(pendingChipRestore.chipId ?? ''),
+  );
+  const promptTemplateRestoreError = mediaRestoreWaitingForCatalog
+    && promptTemplatesLoadFailed
+    ? t('promptTemplates.fetchError')
+    : null;
 
   return (
     <div
@@ -3316,7 +3330,10 @@ export function HomeView({
         onPickChip={pickChip}
         onPickPrototypeSubtype={pickPrototypeSubtype}
         contextItemCount={contextItemCount}
-        error={error}
+        error={promptTemplateRestoreError ?? error}
+        errorActionLabel={promptTemplateRestoreError ? t('promptTemplates.retry') : null}
+        errorActionDisabled={promptTemplatesLoading}
+        onErrorAction={promptTemplateRestoreError ? onPromptTemplatesRetry : undefined}
         workingDir={workingDir}
         recentDirs={recentDirs}
         onPickWorkingDir={handlePickWorkingDir}

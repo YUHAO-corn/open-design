@@ -74,6 +74,9 @@ interface Props {
   templates: ProjectTemplate[];
   onDeleteTemplate: (id: string) => Promise<boolean>;
   promptTemplates: PromptTemplateSummary[];
+  promptTemplatesLoaded?: boolean;
+  promptTemplatesLoadFailed?: boolean;
+  onPromptTemplatesRetry?: () => void;
   defaultDesignSystemId: string | null;
   agents: AgentInfo[];
   // Forwarded to EntryShell → OnboardingView so the AMR cloud card can show a
@@ -256,6 +259,9 @@ export function EntryView({
   templates,
   onDeleteTemplate,
   promptTemplates,
+  promptTemplatesLoaded = true,
+  promptTemplatesLoadFailed = false,
+  onPromptTemplatesRetry,
   defaultDesignSystemId,
   agents,
   agentsLoading,
@@ -380,6 +386,9 @@ export function EntryView({
       templates={templates}
       onDeleteTemplate={onDeleteTemplate}
       promptTemplates={promptTemplates}
+      promptTemplatesLoaded={promptTemplatesLoaded}
+      promptTemplatesLoadFailed={promptTemplatesLoadFailed}
+      onPromptTemplatesRetry={onPromptTemplatesRetry}
       promptTemplatesLoading={promptTemplatesLoading}
       defaultDesignSystemId={defaultDesignSystemId}
       connectors={connectors}

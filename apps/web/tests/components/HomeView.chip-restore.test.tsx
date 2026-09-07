@@ -360,6 +360,7 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
     const acceptedSubmit = vi.fn<React.ComponentProps<typeof HomeView>['onSubmit']>(
       async () => true,
     );
+    const retryPromptTemplates = vi.fn();
     const retry = render(
       <HomeView
         projects={[]}
@@ -367,7 +368,9 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
         onOpenProject={() => undefined}
         onViewAllProjects={() => undefined}
         promptTemplates={[]}
-        promptTemplatesLoading
+        promptTemplatesLoaded={false}
+        promptTemplatesLoadFailed
+        onPromptTemplatesRetry={retryPromptTemplates}
       />,
     );
 
@@ -385,6 +388,22 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
         },
       });
     });
+    fireEvent.click(screen.getByTestId('home-hero-error-action'));
+    expect(retryPromptTemplates).toHaveBeenCalledTimes(1);
+
+    retry.rerender(
+      <HomeView
+        projects={[]}
+        onSubmit={acceptedSubmit}
+        onOpenProject={() => undefined}
+        onViewAllProjects={() => undefined}
+        promptTemplates={[]}
+        promptTemplatesLoaded={false}
+        promptTemplatesLoading
+      />,
+    );
+    expect((screen.getByTestId('home-hero-submit') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId('home-hero-error-action')).toBeNull();
 
     retry.rerender(
       <HomeView
@@ -393,6 +412,7 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
         onOpenProject={() => undefined}
         onViewAllProjects={() => undefined}
         promptTemplates={[LANDSCAPE_TEMPLATE, PORTRAIT_TEMPLATE]}
+        promptTemplatesLoaded
         promptTemplatesLoading={false}
       />,
     );
