@@ -449,6 +449,7 @@ interface Props {
   templates: ProjectTemplate[];
   onDeleteTemplate?: (id: string) => Promise<boolean>;
   promptTemplates: PromptTemplateSummary[];
+  promptTemplatesLoading?: boolean;
   defaultDesignSystemId: string | null;
   connectors: ConnectorDetail[];
   connectorsLoading: boolean;
@@ -592,6 +593,7 @@ export function EntryShell({
   templates,
   onDeleteTemplate,
   promptTemplates,
+  promptTemplatesLoading = false,
   defaultDesignSystemId,
   connectors,
   connectorsLoading,
@@ -1782,6 +1784,7 @@ export function EntryShell({
                 skillsLoading={skillsLoading}
                 connectors={connectors}
                 promptTemplates={promptTemplates}
+                promptTemplatesLoading={promptTemplatesLoading}
                 executionSwitcher={view === 'home' ? homeExecutionSwitcher : undefined}
                 artifactUpgradeSlot={artifactUpgradeSlot}
                 deepSeekV4FlashCampaignAudience={deepSeekV4FlashCampaignAudience}

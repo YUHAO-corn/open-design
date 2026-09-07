@@ -307,6 +307,7 @@ interface Props {
   skillsLoading?: boolean;
   connectors?: ConnectorDetail[];
   promptTemplates?: PromptTemplateSummary[];
+  promptTemplatesLoading?: boolean;
   // Personalized first-run starting point (spec §7). Null unless the user just
   // finished the About-you survey this session; EntryShell owns the state.
   // Accepted for API compatibility but no longer rendered — see
@@ -541,6 +542,7 @@ export function HomeView({
   skillsLoading = false,
   connectors = EMPTY_CONNECTORS,
   promptTemplates = EMPTY_PROMPT_TEMPLATES,
+  promptTemplatesLoading = false,
   recommendation = null,
   onRecommendationStart,
   onRecommendationDismiss,
@@ -767,6 +769,11 @@ export function HomeView({
   // Clearing on `active === null` covers the explicit-clear (×) and the
   // Ask-mode / skill-pick paths that reset `active` to null directly.
   useEffect(() => {
+    // A media restore can wait across multiple renders for the prompt-template
+    // catalog. Keep its serialized identity intact during that window; writing
+    // `active === null` here would erase the only remount-safe copy before the
+    // restore effect below can hydrate it.
+    if (pendingChipRestore) return;
     writeHomeComposerChipDraft(
       active
         ? {
@@ -798,7 +805,7 @@ export function HomeView({
           }
         : null,
     );
-  }, [active]);
+  }, [active, pendingChipRestore]);
   // Live counterpart to the draft-key restore above (see the
   // `HOME_COMPOSER_SEED_EVENT` module note) — picks up a `seedHomeComposerPrompt`
   // call that fires while this HomeView instance is already mounted, which is
@@ -1903,6 +1910,23 @@ export function HomeView({
   useEffect(() => {
     if (!pendingChipRestore || pluginsLoading) return;
     const restore = pendingChipRestore;
+    // The draft reader already folded any retired top-level id onto its parent,
+    // so `restore.chipId` names a live task type and the scene is a refinement
+    // of it — never a chip of its own to look up instead.
+    const restoredChip = restore.chipId ? findChip(restore.chipId) : null;
+    const restoredSubtype = restoredChip?.id === 'prototype'
+      ? prototypeSubChipForSlug(restore.prototypeSubtypeId ?? null)
+      : null;
+    const restoredAction = restoredChip?.action;
+    const restoredMediaSurface = homeMediaSurfaceForChipId(restore.chipId ?? '');
+    // App loads prompt templates asynchronously. Restoring a persisted media
+    // id against the initial empty list would normalize it to `No template`,
+    // overwrite the saved draft, and make a retry submit the wrong metadata.
+    // Keep the restore pending (which also keeps Send disabled) until the
+    // parent confirms the catalog has settled.
+    if (restoredMediaSurface && restore.mediaSelection?.template && promptTemplatesLoading) {
+      return;
+    }
     setPendingChipRestore(null);
     if (active || pendingPluginUseHandoff) return;
     const record = plugins.find((plugin) => plugin.id === restore.pluginId);
@@ -1913,15 +1937,6 @@ export function HomeView({
       writeHomeComposerChipDraft(null);
       return;
     }
-    // The draft reader already folded any retired top-level id onto its parent,
-    // so `restore.chipId` names a live task type and the scene is a refinement
-    // of it — never a chip of its own to look up instead.
-    const restoredChip = restore.chipId ? findChip(restore.chipId) : null;
-    const restoredSubtype = restoredChip?.id === 'prototype'
-      ? prototypeSubChipForSlug(restore.prototypeSubtypeId ?? null)
-      : null;
-    const restoredAction = restoredChip?.action;
-    const restoredMediaSurface = homeMediaSurfaceForChipId(restore.chipId ?? '');
     const restoredMediaComposer = restoredMediaSurface
       && (restoredAction?.kind === 'apply-scenario' || restoredAction?.kind === 'apply-figma-migration')
       ? buildHomeMediaComposer(
@@ -1983,7 +1998,15 @@ export function HomeView({
       examplePick: restore.examplePick === true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingChipRestore, pluginsLoading, plugins, active, pendingPluginUseHandoff]);
+  }, [
+    pendingChipRestore,
+    pluginsLoading,
+    plugins,
+    active,
+    pendingPluginUseHandoff,
+    promptTemplatesLoading,
+    promptTemplates,
+  ]);
 
   // Default creation type (per product): a fresh Home composer starts on
   // 原型 (the `prototype` chip) instead of typeless. One-shot per mount, decided

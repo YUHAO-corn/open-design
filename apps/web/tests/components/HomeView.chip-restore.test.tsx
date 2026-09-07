@@ -165,6 +165,14 @@ const PORTRAIT_TEMPLATE: PromptTemplateSummary = {
   source: { repo: 'open-design/image-prompts', license: 'MIT' },
 };
 
+const LANDSCAPE_TEMPLATE: PromptTemplateSummary = {
+  ...PORTRAIT_TEMPLATE,
+  id: 'image-landscape',
+  title: 'Image landscape concept',
+  model: 'gpt-image-1',
+  aspect: '16:9',
+};
+
 function stubAnimationFrame() {
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     const id = window.setTimeout(() => cb(window.performance.now()), 0);
@@ -304,7 +312,7 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
     ).toBe(false);
   });
 
-  it('retries a rejected image create with the same template metadata after Home remounts', async () => {
+  it('waits for template hydration before restoring a rejected image create', async () => {
     const fetchMock = fetchMockFor([MEDIA_PLUGIN]);
     vi.stubGlobal('fetch', fetchMock);
     stubAnimationFrame();
@@ -312,13 +320,11 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
       'open-design:home-composer:prompt',
       'Create a retryable portrait image.',
     );
-
     let unmountFirst = () => {};
     const rejectedSubmit = vi.fn<React.ComponentProps<typeof HomeView>['onSubmit']>(
       async () => {
-        // App's optimistic project route unmounts Home before /api/projects
-        // settles. It catches the typed 400, routes back to a fresh Home
-        // instance, and resolves false to the now-unmounted submitter.
+        // App optimistically leaves Home while project creation is in flight,
+        // then mounts a fresh Home after a typed rejection.
         unmountFirst();
         return false;
       },
@@ -348,23 +354,49 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
         },
       });
     });
-    fireEvent.click(await screen.findByTestId('home-hero-submit'));
+    fireEvent.click(screen.getByTestId('home-hero-submit'));
     await waitFor(() => expect(rejectedSubmit).toHaveBeenCalledTimes(1));
 
     const acceptedSubmit = vi.fn<React.ComponentProps<typeof HomeView>['onSubmit']>(
       async () => true,
     );
-    render(
+    const retry = render(
       <HomeView
         projects={[]}
         onSubmit={acceptedSubmit}
         onOpenProject={() => undefined}
         onViewAllProjects={() => undefined}
-        promptTemplates={[PORTRAIT_TEMPLATE]}
+        promptTemplates={[]}
+        promptTemplatesLoading
       />,
     );
 
     await screen.findByTestId('home-hero-input');
+    await waitFor(() => {
+      expect((screen.getByTestId('home-hero-submit') as HTMLButtonElement).disabled).toBe(true);
+      expect(JSON.parse(
+        window.localStorage.getItem('open-design:home-composer:chip') ?? '{}',
+      )).toMatchObject({
+        chipId: 'image',
+        mediaSelection: {
+          template: 'image-product',
+          model: 'gpt-image-2',
+          aspect: '3:4',
+        },
+      });
+    });
+
+    retry.rerender(
+      <HomeView
+        projects={[]}
+        onSubmit={acceptedSubmit}
+        onOpenProject={() => undefined}
+        onViewAllProjects={() => undefined}
+        promptTemplates={[LANDSCAPE_TEMPLATE, PORTRAIT_TEMPLATE]}
+        promptTemplatesLoading={false}
+      />,
+    );
+
     await waitFor(() => {
       expect(screen.getByTestId('home-hero-template-trigger').textContent).toContain('Image');
       expect((screen.getByTestId('home-hero-submit') as HTMLButtonElement).disabled).toBe(false);
@@ -372,14 +404,24 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
     fireEvent.click(screen.getByTestId('home-hero-submit'));
     await waitFor(() => expect(acceptedSubmit).toHaveBeenCalledTimes(1));
 
+    const expectedProjectMetadata = {
+      kind: 'image',
+      imageModel: 'gpt-image-2',
+      imageAspect: '3:4',
+      promptTemplate: {
+        id: 'image-product',
+        surface: 'image',
+        title: 'Image product concept',
+        prompt: 'A polished product image prompt.',
+        summary: 'A polished product image prompt.',
+        category: 'product',
+        model: 'gpt-image-2',
+        aspect: '3:4',
+        source: { repo: 'open-design/image-prompts', license: 'MIT' },
+      },
+    };
     for (const submit of [rejectedSubmit, acceptedSubmit]) {
-      expect(submit.mock.calls[0]?.[0]).toEqual(expect.objectContaining({
-        projectMetadata: expect.objectContaining({
-          imageModel: 'gpt-image-2',
-          imageAspect: '3:4',
-          promptTemplate: expect.objectContaining({ id: 'image-product' }),
-        }),
-      }));
+      expect(submit.mock.calls[0]?.[0].projectMetadata).toEqual(expectedProjectMetadata);
     }
   });
 

@@ -282,7 +282,7 @@ export function EntryView({
   skillsLoading = false,
   designSystemsLoading = false,
   projectsLoading = false,
-  promptTemplatesLoading: _promptTemplatesLoading = false,
+  promptTemplatesLoading = false,
   onCreateProject,
   onCreatePluginShareProject,
   onImportClaudeDesign,
@@ -380,6 +380,7 @@ export function EntryView({
       templates={templates}
       onDeleteTemplate={onDeleteTemplate}
       promptTemplates={promptTemplates}
+      promptTemplatesLoading={promptTemplatesLoading}
       defaultDesignSystemId={defaultDesignSystemId}
       connectors={connectors}
       connectorsLoading={connectorsLoading}
